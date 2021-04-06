@@ -2,6 +2,7 @@
 // #include "backend.h"
 // #include <ESP32Servo.h>
 // #include "esp_camera.h"
+// #include "camera_pins.h"
 #include <WiFi.h>
 #include "esp_http_server.h"
 #include "esp_camera.h"
@@ -15,15 +16,14 @@ static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" 
 static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
 static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
-// #include "camera_pins.h"
-
 // WiFi login for my laptop's hotspot
 const char* ssid = "LAPTOP-1QLPB7T6 1976";
 const char* password = "1003P5<o";
+
 // Honestly IDK what this is
 httpd_handle_t web_httpd = NULL;
 
-// Handler for server
+// Index handler for server
 static esp_err_t index_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "text/plain");
   return httpd_resp_send(req, "index handler part 1",20);
@@ -33,9 +33,9 @@ static esp_err_t index_handler(httpd_req_t *req) {
 static esp_err_t stream_handler(httpd_req_t *req) {
   camera_fb_t *fb = NULL;
   esp_err_t res = ESP_OK;
-  // size_t _jpg_buf_len = 0;
-  // uint8_t *_jpg_buf = NULL;
-  // char *part_buf[64];
+  size_t _jpg_buf_len = 0;
+  uint8_t *_jpg_buf = NULL;
+  char *part_buf[64];
   // dl_matrix3du_t *image_matrix = NULL;
 
   // Cut out the weird if statement from the example, SHOULDNT cause issues
@@ -54,11 +54,59 @@ static esp_err_t stream_handler(httpd_req_t *req) {
       Serial.println("Camera capture failed");
       res = ESP_FAIL;
     } else {
-      // TODO: There is a buffer, do stuff
+      if (true /*!detection_enabled, but we aren't detecting*/) {
+        if (fb->format != PIXFORMAT_JPEG) {
+          bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
+          esp_camera_fb_return(fb);
+          fb = NULL;
+          if (!jpeg_converted) {
+            Serial.println("JPEG compression failed");
+            res = ESP_FAIL;
+          }
+        } else {
+          _jpg_buf_len = fb->len;
+          _jpg_buf = fb->buf;
+        }
+      } else {
+        // Do the detecting stuff
+      }
     }
+    // Send the stream boundary
     if (res == ESP_OK) {
       res = httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
     }
+    // Send part buffer
+    if (res == ESP_OK) {
+      size_t hlen = snprintf((char *)part_buf, 64, _STREAM_PART, _jpg_buf_len);
+      res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
+    }
+    // Send jpg buffer
+    if (res == ESP_OK) {
+      res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+    }
+    // Get fb
+    if (fb) {
+      esp_camera_fb_return(fb);
+      fb = NULL;
+      _jpg_buf = NULL;
+    } else if (_jpg_buf) {
+      free(_jpg_buf);
+      _jpg_buf = NULL;
+    }
+    // Break if we're not OK
+    if (res != ESP_OK) {
+      break;
+    }
+
+    /* There's some frame time stuff here in the template. Seemed unnecessary so I omitted it.*/
+    int64_t fr_end = esp_timer_get_time();
+    int64_t frame_time = fr_end - last_frame;
+    last_frame = fr_end;
+    frame_time /= 1000;
+    Serial.printf("MJPG: %uB %ums (%.1ffps)", 
+      (uint32_t)(_jpg_buf_len),
+      (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time
+    );
   }
 
   last_frame = 0;
