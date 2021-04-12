@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include "esp_http_server.h"
 #include "esp_camera.h"
+#include "index.h"
 
 #define CAMERA_MODEL_AI_THINKER // Our camera model
 #define Wifi WiFi // Jaden can't spell WiFi
@@ -23,10 +24,17 @@ const char* password = "1003P5<o";
 // Honestly IDK what this is
 httpd_handle_t web_httpd = NULL;
 
-// Index handler for server
-static esp_err_t index_handler(httpd_req_t *req) {
+// Test handler for server
+static esp_err_t test_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "text/plain");
-  return httpd_resp_send(req, "index handler part 1",20);
+  return httpd_resp_send(req, "Test handler part 1",19);
+}
+
+// index handler for server
+static esp_err_t index_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "text/html");
+  httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+  return httpd_resp_send(req, (const char *)index_html_gz, index_html_gz_len);
 }
 
 // Stream handler for server
@@ -47,7 +55,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
 
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
-  // Main streaming loop
+  // Main streaming loop-
   while (true) {
     fb = esp_camera_fb_get();
     if (!fb) {
@@ -124,9 +132,25 @@ void startServer() {
     .user_ctx = NULL
   };
 
+  httpd_uri_t stream_uri = {
+    .uri      = "/stream",
+    .method   = HTTP_GET,
+    .handler  = stream_handler,
+    .user_ctx = NULL
+  };
+
+  httpd_uri_t test_uri = {
+    .uri      = "/test",
+    .method   = HTTP_GET,
+    .handler  = test_handler,
+    .user_ctx = NULL
+  };
+
   Serial.printf("Starting web server on port: '%d'\n", config.server_port);
   if (httpd_start(&web_httpd, &config) == ESP_OK) {
     httpd_register_uri_handler(web_httpd, &index_uri);
+    httpd_register_uri_handler(web_httpd, &stream_uri);
+    httpd_register_uri_handler(web_httpd, &test_uri);
   }
 }
 
