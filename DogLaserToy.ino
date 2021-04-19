@@ -6,7 +6,7 @@
 #include <WiFi.h>
 #include "esp_http_server.h"
 #include "esp_camera.h"
-#include "index.h"
+#include "frontend.h"
 
 
 #define CAMERA_MODEL_AI_THINKER // Our camera model
