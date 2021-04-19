@@ -39,6 +39,49 @@ static esp_err_t index_handler(httpd_req_t *req) {
   return httpd_resp_send(req, (const char *)index_html_gz, index_html_gz_len);
 }
 
+// js handler for server
+static esp_err_t js_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "application/javascript");
+  httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+  return httpd_resp_send(req, (const char *)index_js_gz, index_js_gz_len);
+}
+
+// style handler for server
+static esp_err_t css_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "text/css");
+  httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+  return httpd_resp_send(req, (const char *)style_css_gz, style_css_gz_len);
+}
+
+// laser handler for server
+static esp_err_t laser_handler(httpd_req_t *req) {
+  Serial.printf("Laser handler called\n");
+  char content[10];
+  size_t recv_size = min(req->content_len, sizeof(content));
+
+  // Check that the connection is still good
+  int ret = httpd_req_recv(req, content, recv_size);
+  if (ret <= 0) {  /* 0 return value indicates connection closed */
+    /* Check if timeout occurred */
+    if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+      /* In case of timeout one can choose to retry calling
+       * httpd_req_recv(), but to keep it simple, here we
+       * respond with an HTTP 408 (Request Timeout) error */
+       httpd_resp_send_408(req);
+    }
+    /* In case of error, returning ESP_FAIL will
+     * ensure that the underlying socket is closed */
+    return ESP_FAIL;
+  }
+
+  // Toggle laser
+  static bool ledState = false;
+  Serial.printf("LED is now %s, content: %s\n", (ledState = !ledState) ? "On" : "Off", content);
+
+  httpd_resp_send(req, "Laser has changed", HTTPD_RESP_USE_STRLEN);
+  return ESP_OK;
+}
+
 // Stream handler for server
 static esp_err_t stream_handler(httpd_req_t *req) {
   camera_fb_t *fb = NULL;
@@ -113,10 +156,10 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     int64_t frame_time = fr_end - last_frame;
     last_frame = fr_end;
     frame_time /= 1000;
-    Serial.printf("MJPG: %uB %ums (%.1ffps)", 
-      (uint32_t)(_jpg_buf_len),
-      (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time
-    );
+    // Serial.printf("MJPG: %uB %ums (%.1ffps)\n", 
+    //   (uint32_t)(_jpg_buf_len),
+    //   (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time
+    // );
   }
 
   last_frame = 0;
@@ -134,6 +177,27 @@ void startServer() {
     .user_ctx = NULL
   };
 
+  httpd_uri_t js_uri = {
+    .uri      = "/index.js",
+    .method   = HTTP_GET,
+    .handler  = js_handler,
+    .user_ctx = NULL
+  };
+
+  httpd_uri_t css_uri = {
+    .uri      = "/style.css",
+    .method   = HTTP_GET,
+    .handler  = css_handler,
+    .user_ctx = NULL
+  };
+
+  httpd_uri_t laser_uri = {
+    .uri      = "/laser",
+    .method   = HTTP_POST,
+    .handler  = laser_handler,
+    .user_ctx = NULL
+  };
+
   httpd_uri_t stream_uri = {
     .uri      = "/stream",
     .method   = HTTP_GET,
@@ -146,13 +210,16 @@ void startServer() {
     .method   = HTTP_GET,
     .handler  = test_handler,
     .user_ctx = NULL
-  };
+  };  
 
   Serial.printf("Starting web server on port: '%d'\n", config.server_port);
   if (httpd_start(&web_httpd, &config) == ESP_OK) {
     httpd_register_uri_handler(web_httpd, &index_uri);
     httpd_register_uri_handler(web_httpd, &stream_uri);
     httpd_register_uri_handler(web_httpd, &test_uri);
+    httpd_register_uri_handler(web_httpd, &js_uri);
+    httpd_register_uri_handler(web_httpd, &css_uri);
+    httpd_register_uri_handler(web_httpd, &laser_uri);
   }
 }
 
