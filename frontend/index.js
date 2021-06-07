@@ -1,5 +1,6 @@
 
 let host = document.location.origin;
+let stream_url = host + ':81';
 
 let view;
 let viewSelector;
@@ -34,7 +35,7 @@ function loadDesktopView() {
 
 function startStream() {
     if (!stream) return;
-    stream.src = `${host}/stream`;
+    stream.src = `${stream_url}/stream`;
 }
 function stopStream() {
     window.stop();
