@@ -26,6 +26,10 @@ body {
     display: none;
 }
 
+.disabled {
+    pointer-events: none;
+}
+
 .platform-selection {
     width: 100%;
     height: 100%;
@@ -70,4 +74,25 @@ body {
 }
 .mobile .laser-switch.pressed {
     background-color: black;
+}
+
+.mobile .joystick {
+    width: 100px;
+    height: 100px;
+    background-color: gray;
+    border-radius: 50%;
+    margin: 30px;
+    position: relative;
+}
+.mobile .joystick>div {
+    width: 50%;
+    height: 50%;
+    background-color: darkgray;
+    border-radius: 50%;
+    position: absolute;
+    top: 25%;
+    left: 25%;
+}
+.mobile .joystick.released>div {
+    transition: top 0.2s, left 0.2s;
 }
