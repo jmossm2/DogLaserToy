@@ -29,8 +29,14 @@ httpd_handle_t web_httpd = NULL;
 httpd_handle_t stream_httpd = NULL;
 
 // Servos
-Servo pit_servo;
-Servo yaw_servo;
+Servo servo_pit;
+Servo servo_yaw;
+uint32_t servo_pitx, servo_pity;
+uint32_t servo_yawx, servo_yawy;
+
+static esp_err_t extract_query(httpd_req_t *req, char *var, size_t var_len, char *val, size_t val_len) {
+  
+}
 
 // Test handler for server
 static esp_err_t test_handler(httpd_req_t *req) {
@@ -63,7 +69,48 @@ static esp_err_t css_handler(httpd_req_t *req) {
 static esp_err_t laser_handler(httpd_req_t *req) {
   Serial.printf("Laser handler called\n");
   char content[10];
-  size_t recv_size = min(req->content_len, sizeof(content));
+  size_t recv_size = min(req->content_len, 10);
+
+  // Parse variable and value
+  char query_mode[32];
+  char*  buf;
+  size_t buf_len;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+  if (buf_len > 1) {
+    buf = (char*)malloc(buf_len);
+    if (!buf){
+      httpd_resp_send_500(req);
+      return ESP_FAIL;
+    }
+    if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+      if (httpd_query_key_value(buf, "mode", query_mode, 32) == ESP_OK) {
+      }
+      else {
+        free(buf);
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+      }
+      free(buf);
+    } else {
+      httpd_resp_send_404(req);
+      return ESP_FAIL;
+    }
+  }
+  // Choose correct mode
+  static bool laserState = false;
+  if (!strcmp(query_mode, "on")) {
+    laserState = true;
+    // Laser pin high
+  }
+  else if (!strcmp(query_mode, "off")) {
+    laserState = false;
+    // Laser pin low
+  }
+  else if (!strcmp(query_mode, "toggle")) {
+    laserState = !laserState;
+    // Laser pin laserState
+  }
+  Serial.printf("%s %s %s", query_mode, query_x, query_y);
 
   // Check that the connection is still good
   int ret = httpd_req_recv(req, content, recv_size);
@@ -80,12 +127,66 @@ static esp_err_t laser_handler(httpd_req_t *req) {
     return ESP_FAIL;
   }
 
-  // Toggle laser
-  static bool ledState = false;
-  Serial.printf("LED is now %s, content: %s\n", (ledState = !ledState) ? "On" : "Off", content);
-
   httpd_resp_send(req, "Laser has changed", HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
+}
+
+// servo handler for server
+static esp_err_t servo_handler(httpd_req_t *req) {
+  Serial.printf("Servo handler called\r\n");
+  char content[10];
+  size_t recv_size = min(req->content_len, sizeof(content));
+
+  // Parse variable and value
+  char query_mode[32], query_x[32], query_y[32];
+  char*  buf;
+  size_t buf_len;
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+  if (buf_len > 1) {
+    buf = (char*)malloc(buf_len);
+    if (!buf){
+      httpd_resp_send_500(req);
+      return ESP_FAIL;
+    }
+    if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+      if (httpd_query_key_value(buf, "mode", query_mode, 32) == ESP_OK &&
+          httpd_query_key_value(buf, "x", query_x, 32) == ESP_OK &&
+          httpd_query_key_value(buf, "y", query_y, 32) == ESP_OK) {
+      }
+      else {
+        free(buf);
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+      }
+      free(buf);
+    } else {
+      httpd_resp_send_404(req);
+      return ESP_FAIL;
+    }
+
+    
+  }
+  // Choose correct mode
+  if (!strcmp(query_mode, "velocity")) {
+  }
+  else if (!strcmp(query_mode, "set")) {
+  }
+  else if (!strcmp(query_mode, "offset")) {
+  }
+  Serial.printf("%s %s %s", query_mode, query_x, query_y);
+
+  // Check that the connection is still good
+  int ret = httpd_req_recv(req, content, recv_size);
+  if (ret <= 0) { /* 0 return value indicates connection closed */
+    /* Check if timeout occurred */
+    if (ret = HTTPD_SOCK_ERR_TIMEOUT) {
+      httpd_resp_send_408(req);
+    }
+    return ESP_FAIL;
+  }
+
+  httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+  return httpd_resp_send(req, "Moved servos", HTTPD_RESP_USE_STRLEN);
 }
 
 // Stream handler for server
@@ -204,6 +305,12 @@ void startServer() {
     .user_ctx = NULL
   };
 
+  httpd_uri_t servo_uri = {
+    .uri      = "/servo",
+    .method   = HTTP_POST,
+    .handler  = servo_handler,
+    .user_ctx = NULL
+  };
   
 
   httpd_uri_t test_uri = {
@@ -220,6 +327,7 @@ void startServer() {
     httpd_register_uri_handler(web_httpd, &js_uri);
     httpd_register_uri_handler(web_httpd, &css_uri);
     httpd_register_uri_handler(web_httpd, &laser_uri);
+    httpd_register_uri_handler(web_httpd, &servo_uri);
   }
 }
 
@@ -309,8 +417,8 @@ void setup() {
   Serial.println("\nWiFi connected");
   
   // Attach servos
-  pit_servo.attach(12, Servo::CHANNEL_NOT_ATTACHED, -90, 90, 600, 2400);
-  yaw_servo.attach( 2, Servo::CHANNEL_NOT_ATTACHED, -90, 90, 600, 2400);
+  servo_pit.attach(12, Servo::CHANNEL_NOT_ATTACHED, -90, 90, 600, 2400);
+  servo_yaw.attach( 2, Servo::CHANNEL_NOT_ATTACHED, -90, 90, 600, 2400);
 
   // Start the web server
   startServer();
@@ -323,13 +431,13 @@ void setup() {
 
   // Rotate servos
   while (1) {
-    yaw_servo.write(-90);
+    servo_yaw.write(-90);
     delay(1000);
-    pit_servo.write(-90);
+    servo_pit.write(-90);
     delay(1000);
-    yaw_servo.write(90);
+    servo_yaw.write(90);
     delay(1000);
-    pit_servo.write(90);
+    servo_pit.write(90);
     delay(1000);
   }
 }
