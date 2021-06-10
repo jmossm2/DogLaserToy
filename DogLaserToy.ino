@@ -7,6 +7,7 @@
 #include "esp_http_server.h"
 #include "esp_camera.h"
 #include "frontend.h"
+#include <Servo.h>
 
 
 #define CAMERA_MODEL_AI_THINKER // Our camera model
@@ -26,6 +27,10 @@ const char* password = "1003P5<o";
 // Honestly IDK what this is
 httpd_handle_t web_httpd = NULL;
 httpd_handle_t stream_httpd = NULL;
+
+// Servos
+Servo pit_servo;
+Servo yaw_servo;
 
 // Test handler for server
 static esp_err_t test_handler(httpd_req_t *req) {
@@ -302,6 +307,10 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("\nWiFi connected");
+  
+  // Attach servos
+  pit_servo.attach(12, Servo::CHANNEL_NOT_ATTACHED, -90, 90, 600, 2400);
+  yaw_servo.attach( 2, Servo::CHANNEL_NOT_ATTACHED, -90, 90, 600, 2400);
 
   // Start the web server
   startServer();
@@ -311,6 +320,18 @@ void setup() {
   Serial.print("Server ready! Use 'http://");
   Serial.print(WiFi.localIP());
   Serial.println("' to connect");
+
+  // Rotate servos
+  while (1) {
+    yaw_servo.write(-90);
+    delay(1000);
+    pit_servo.write(-90);
+    delay(1000);
+    yaw_servo.write(90);
+    delay(1000);
+    pit_servo.write(90);
+    delay(1000);
+  }
 }
 
 void loop() {
