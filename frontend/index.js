@@ -254,8 +254,8 @@
         laserSwitch.setAttribute('class', 'laser-switch');
         view.appendChild(laserSwitch);
         let b = new Button(laserSwitch, {
-            // pressed: '/laser?mode=on',
-            // released: '/laser?mode=off',
+            pressed: '/laser?mode=on',
+            released: '/laser?mode=off',
             debug: true
         });
         b.init();
@@ -266,7 +266,7 @@
         view.appendChild(joystick);
         let j = new Joystick(joystick, {
             mode: 'velocity',
-            // sendTo: '/servo',
+            sendTo: '/servo',
             debug: true
         });
         j.init();
