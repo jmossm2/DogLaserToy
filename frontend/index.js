@@ -5,6 +5,7 @@
         this.elem = elem;
         this.pressedPath = options.pressed;
         this.releasedPath = options.released;
+        this.debug = options.debug == true;
         this.enabled = false;
         this.initialized = false;
     }
@@ -50,6 +51,10 @@
                 method: 'POST'
             });
         }
+
+        if (this.debug) {
+            console.log(`[ID: '${this.elem.id}']: Pressed${this.pressedPath ? ` (POST '${this.pressedPath}')` : ''}`);
+        }
     }
     Button.prototype._handleRelease = function (e) {
         e.preventDefault();
@@ -61,16 +66,21 @@
                 method: 'POST'
             });
         }
+
+        if (this.debug) {
+            console.log(`[ID: '${this.elem.id}']: Released${this.releasedPath ? ` (POST '${this.releasedPath}')` : ''}`);
+        }
     }
 
     function Joystick(elem, options = {}) {
         this.elem = elem;
-        this.mode = options.mode;
+        this.mode = options.mode || 'velocity';
         this.sendPath = options.sendTo;
         this.sendInt = (options.sendInterval > 50) ? options.sendInterval : 50;
+        this.debug = options.debug == true;
         this.enabled = false;
         this.initialized = false;
-        this.prevX = 0; // previously processed value
+        this.prevX = 0; // prev values used to indicate the set of xy that is processed and sent to server
         this.prevY = 0;
         this.currX = 0;
         this.currY = 0;
@@ -88,7 +98,7 @@
     Joystick.prototype.init = function () {
         if (this.initialized) return;
         this.elem.addEventListener('touchstart', this._handleTouch.bind(this));
-        this.elem.addEventListener('touchmove', this._handleTouchMove.bind(this));
+        this.elem.addEventListener('touchmove', this._handleMove.bind(this));
         this.elem.addEventListener('touchend', this._handleRelease.bind(this));
 
         this.initialized = true;
@@ -100,7 +110,7 @@
     Joystick.prototype.disconnect = function () {
         if (this.initialized) {
             this.elem.removeEventListener('touchstart', this._handleTouch.bind(this));
-            this.elem.removeEventListener('touchmove', this._handleTouchMove.bind(this));
+            this.elem.removeEventListener('touchmove', this._handleMove.bind(this));
             this.elem.removeEventListener('touchend', this._handleRelease.bind(this));
         }
 
@@ -118,7 +128,7 @@
         this._repositionStick();
         this._dispatchState();
     }
-    Joystick.prototype._handleTouchMove = function (e) {
+    Joystick.prototype._handleMove = function (e) {
         e.preventDefault();
         if (!this.enabled) return;
 
@@ -174,26 +184,50 @@
         return { x: px, y: py };
     }
     Joystick.prototype._dispatchState = function () {
-        if (!this.sendPath) return;
         if (this.prevX != this.currX && this.prevY != this.currY) {
             let now = Date.now();
             if (now > this._lastDispatch + this.sendInt) {
                 this._lastDispatch = now;
                 let pCoords = this._processPositionData();
-                fetch(`${this.sendPath}?mode=${this.mode}&x=${pCoords.x}&y=${pCoords.y}`, {
-                    method: 'POST'
-                });
+                let uri;
+                if (this.sendPath) {
+                    uri = `${this.sendPath}?mode=${this.mode}&x=${pCoords.x}&y=${pCoords.y}`;
+                    fetch(uri, {
+                        method: 'POST'
+                    });
+                }
+
+                if (this.debug) {
+                    if (uri) {
+                        console.log(`[ID: '${this.elem.id}']: StickChange (POST '${uri}')`);
+                    }
+                    else {
+                        console.log(`[ID: '${this.elem.id}']: StickChange (x: ${pCoords.x}, y: ${pCoords.y})`);
+                    }
+                }
             }
         }
     }
     Joystick.prototype._stateCheckLoop = function () {
-        if (!this.sendPath) return;
         if (this.prevX != this.currX && this.prevY != this.currY) {
             this._lastDispatch = Date.now();
             let pCoords = this._processPositionData();
-            fetch(`${this.sendPath}?mode=${this.mode}&x=${pCoords.x}&y=${pCoords.y}`, {
-                method: 'POST'
-            });
+            let uri;
+            if (this.sendPath) {
+                uri = `${this.sendPath}?mode=${this.mode}&x=${pCoords.x}&y=${pCoords.y}`;
+                fetch(uri, {
+                    method: 'POST'
+                });
+            }
+
+            if (this.debug) {
+                if (uri) {
+                    console.log(`[ID: '${this.elem.id}']: StickChange (POST '${uri}')`);
+                }
+                else {
+                    console.log(`[ID: '${this.elem.id}']: StickChange (x: ${pCoords.x}, y: ${pCoords.y})`);
+                }
+            }
         }
 
         setTimeout(this._stateCheckLoop.bind(this), this.sendInt);
@@ -221,28 +255,20 @@
         view.appendChild(laserSwitch);
         let b = new Button(laserSwitch, {
             // pressed: '/laser?mode=on',
-            // released: '/laser?mode=off'
+            // released: '/laser?mode=off',
+            debug: true
         });
         b.init();
-        // b.disconnect();
-
-        // laserSwitch.addEventListener('touchstart', turnOnLaser);
-        // laserSwitch.addEventListener('touchend', turnOffLaser);
-        laserSwitch.addEventListener('touchmove', (e) => {
-            console.log(e);
-            e.preventDefault();
-            let x, y;
-            var touch = e.touches[0] || e.changedTouches[0];
-            x = touch.pageX - e.target.offsetLeft - e.target.offsetWidth / 2;
-            y = touch.pageY - e.target.offsetTop - e.target.offsetWidth / 2;
-            console.log('x: ' + x + ', y: ' + y);
-        });
 
         let joystick = document.createElement('div');
         joystick.setAttribute('class', 'joystick');
         joystick.appendChild(document.createElement('div'));
         view.appendChild(joystick);
-        let j = new Joystick(joystick);
+        let j = new Joystick(joystick, {
+            mode: 'velocity',
+            // sendTo: '/servo',
+            debug: true
+        });
         j.init();
 
         startStream();
@@ -291,21 +317,4 @@
         document.getElementById('desktop-selector').addEventListener('click', loadDesktopView);
     });
 
-
-    // document.addEventListener('DOMContentLoaded', (e) => {
-    //     var baseHost = document.location.origin;
-    //     // var streamUrl = baseHost + ':81'
-
-    //     const view = document.getElementById('stream');
-    //     const viewContainer = document.getElementById('stream-container');
-
-    //     function startStream() {
-    //         view.src = `${baseHost}/stream`;
-    //     }
-    //     function stopStream() {
-    //         window.stop();
-    //     }
-
-    //     startStream();
-    // });
 })();
