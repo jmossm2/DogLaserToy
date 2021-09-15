@@ -8,6 +8,10 @@
         this.debug = options.debug == true;
         this.enabled = false;
         this.initialized = false;
+        this.cbs = {
+            press: this._handlePress.bind(this),
+            release: this._handleRelease.bind(this)
+        }
     }
     Button.prototype.enable = function () {
         if (!this.initialized) return;
@@ -20,10 +24,10 @@
     }
     Button.prototype.init = function () {
         if (this.initialized) return;
-        this.elem.addEventListener('touchstart', this._handlePress.bind(this));
-        this.elem.addEventListener('mousedown', this._handlePress.bind(this));
-        this.elem.addEventListener('touchend', this._handleRelease.bind(this));
-        this.elem.addEventListener('mouseup', this._handleRelease.bind(this));
+        this.elem.addEventListener('touchstart', this.cbs.press);
+        this.elem.addEventListener('mousedown', this.cbs.press);
+        this.elem.addEventListener('touchend', this.cbs.release);
+        this.elem.addEventListener('mouseup', this.cbs.release);
 
         this.initialized = true;
 
@@ -31,10 +35,10 @@
     }
     Button.prototype.disconnect = function () {
         if (this.initialized) {
-            this.elem.removeEventListener('touchstart', this._handlePress.bind(this));
-            this.elem.removeEventListener('mousedown', this._handlePress.bind(this));
-            this.elem.removeEventListener('touchend', this._handleRelease.bind(this));
-            this.elem.removeEventListener('mouseup', this._handleRelease.bind(this));
+            this.elem.removeEventListener('touchstart', this.cbs.press);
+            this.elem.removeEventListener('mousedown', this.cbs.press);
+            this.elem.removeEventListener('touchend', this.cbs.release);
+            this.elem.removeEventListener('mouseup', this.cbs.release);
         }
 
         this.initialized = false;
@@ -85,6 +89,11 @@
         this.currX = 0;
         this.currY = 0;
         this._lastDispatch = 0;
+        this.cbs = {
+            tStart: this._handleTouch.bind(this),
+            tMove: this._handleMove.bind(this),
+            tEnd: this._handleRelease.bind(this)
+        }
     }
     Joystick.prototype.enable = function () {
         if (!this.initialized) return;
@@ -97,9 +106,9 @@
     }
     Joystick.prototype.init = function () {
         if (this.initialized) return;
-        this.elem.addEventListener('touchstart', this._handleTouch.bind(this));
-        this.elem.addEventListener('touchmove', this._handleMove.bind(this));
-        this.elem.addEventListener('touchend', this._handleRelease.bind(this));
+        this.elem.addEventListener('touchstart', this.cbs.tStart);
+        this.elem.addEventListener('touchmove', this.cbs.tMove);
+        this.elem.addEventListener('touchend', this.cbs.tEnd);
 
         this.initialized = true;
 
@@ -109,9 +118,9 @@
     }
     Joystick.prototype.disconnect = function () {
         if (this.initialized) {
-            this.elem.removeEventListener('touchstart', this._handleTouch.bind(this));
-            this.elem.removeEventListener('touchmove', this._handleMove.bind(this));
-            this.elem.removeEventListener('touchend', this._handleRelease.bind(this));
+            this.elem.removeEventListener('touchstart', this.cbs.tStart);
+            this.elem.removeEventListener('touchmove', this.cbs.tMove);
+            this.elem.removeEventListener('touchend', this.cbs.tEnd);
         }
 
         this.initialized = false;
@@ -183,10 +192,10 @@
         }
         return { x: px, y: py };
     }
-    Joystick.prototype._dispatchState = function () {
-        if (this.prevX != this.currX && this.prevY != this.currY) {
+    Joystick.prototype._dispatchState = function (ignoreLastDispatch = false) {
+        if (this.prevX != this.currX || this.prevY != this.currY) {
             let now = Date.now();
-            if (now > this._lastDispatch + this.sendInt) {
+            if (ignoreLastDispatch || now > this._lastDispatch + this.sendInt) {
                 this._lastDispatch = now;
                 let pCoords = this._processPositionData();
                 let uri;
@@ -209,29 +218,130 @@
         }
     }
     Joystick.prototype._stateCheckLoop = function () {
-        if (this.prevX != this.currX && this.prevY != this.currY) {
-            this._lastDispatch = Date.now();
-            let pCoords = this._processPositionData();
-            let uri;
-            if (this.sendPath) {
-                uri = `${this.sendPath}?mode=${this.mode}&x=${pCoords.x}&y=${pCoords.y}`;
-                fetch(uri, {
-                    method: 'POST'
-                });
-            }
+        if (!this.initialized) return;
+        this._dispatchState(true);
+        setTimeout(this._stateCheckLoop.bind(this), this.sendInt);
+    }
 
+    function PointerCaptcher(elem, options = {}) {
+        this.elem = elem;
+        this.mode = options.mode || 'set';
+        this._useDefaultMode = (this.mode === 'set') ? true : false;
+        this.sendPath = options.sendTo;
+        this.sendInt = (options.sendInterval > 50) ? options.sendInterval : 50;
+        this.debug = options.debug == true;
+        this.initialized = false;
+        this.prevX = 0;
+        this.prevY = 0;
+        this.currX = 0;
+        this.currY = 0;
+        this._lastDispatch = 0;
+        this.lockedOn = false;
+        this.cbs = {
+            lockChanged: this._handleLockChange.bind(this),
+            handleUpdate: this._handleUpdate.bind(this)
+        }
+    }
+    PointerCaptcher.prototype.init = function () {
+        if (this.initialized) return;
+        this.elem.requestPointerLock = this.elem.requestPointerLock || this.elem.mozRequestPointerLock;
+        document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
+
+        this.elem.onclick = this._handleClick.bind(this);
+
+        document.addEventListener('pointerlockchange', this.cbs.lockChanged, false);
+        document.addEventListener('mozpointerlockchange', this.cbs.lockChanged, false);
+
+        this.initialized = true;
+
+        this._stateCheckLoop();
+    }
+    PointerCaptcher.prototype.disconnect = function () {
+        if (this.initialized) {
+            this.elem.onclick = null;
+
+            document.removeEventListener('pointerlockchange', this.cbs.lockChanged, false);
+            document.removeEventListener('mozpointerlockchange', this.cbs.lockChanged, false);
+        }
+        if (this.lockedOn) {
+            document.removeEventListener('mousemove', this.cbs.handleUpdate, false);
+        }
+
+        this.initialized = false;
+    }
+    PointerCaptcher.prototype._handleClick = function () {
+        this.elem.requestPointerLock();
+    }
+    PointerCaptcher.prototype._handleLockChange = function () {
+        if (document.pointerLockElement === this.elem || document.mozPointerLockElement === this.elem) {
             if (this.debug) {
-                if (uri) {
-                    console.log(`[ID: '${this.elem.id}']: StickChange (POST '${uri}')`);
+                console.log(`[ID: '${this.elem.id}']: Pointer is now locked`);
+            }
+            this.lockedOn = true;
+            document.addEventListener('mousemove', this.cbs.handleUpdate, false);
+        }
+        else {
+            if (this.debug) {
+                console.log(`[ID: '${this.elem.id}']: Pointer is now unlocked`);
+            }
+            this.lockedOn = false;
+            document.removeEventListener('mousemove', this.cbs.handleUpdate, false);
+        }
+    }
+    PointerCaptcher.prototype._handleUpdate = function (e) {
+        let x = Math.round(e.movementX / 3);
+        let y = Math.round(e.movementY / 3);
+        if (x != 0) {
+            this.currX = Math.max(Math.min(this.currX + x, 100), -100);
+        }
+        if (y != 0) {
+            this.currY = Math.max(Math.min(this.currY + y, 100), -100);
+        }
+    }
+    PointerCaptcher.prototype._dispatchState = function (ignoreLastDispatch = false) {
+        if (this._useDefaultMode && (this.prevX != this.currX || this.prevY != this.currY) ||
+            !this._useDefaultMode && (this.currX != 0 || this.currY != 0)) {
+            let now = Date.now();
+            if (ignoreLastDispatch || now > this._lastDispatch + this.sendInt) {
+                if (this._useDefaultMode) {
+                    this.prevX = this.currX;
+                    this.prevY = this.currY;
                 }
-                else {
-                    console.log(`[ID: '${this.elem.id}']: StickChange (x: ${pCoords.x}, y: ${pCoords.y})`);
+                this._lastDispatch = now;
+                let uri;
+                if (this.sendPath) {
+                    uri = `${this.sendPath}?mode=${this.mode}&x=${this.currX}&y=${this.currY}`;
+                    fetch(uri, {
+                        method: 'POST'
+                    });
+                }
+
+                if (this.debug) {
+                    if (uri) {
+                        console.log(`[ID: '${this.elem.id}']: Pointer Captcher (POST '${uri}')`);
+                    }
+                    else {
+                        console.log(`[ID: '${this.elem.id}']: Pointer Captcher (x: ${this.currX}, y: ${this.currY})`);
+                    }
+                }
+
+                if (!this._useDefaultMode) {
+                    this.currX = 0;
+                    this.currY = 0;
                 }
             }
         }
 
+    }
+    PointerCaptcher.prototype._stateCheckLoop = function () {
+        if (!this.initialized) return;
+        this._dispatchState(true);
         setTimeout(this._stateCheckLoop.bind(this), this.sendInt);
     }
+
+
+
+
 
 
     let host = document.location.origin;
@@ -243,6 +353,7 @@
 
     function loadMobileView() {
         view.classList.add('mobile');
+
         let streamContainer = document.createElement('div');
         streamContainer.setAttribute('class', 'stream-container');
         stream = document.createElement('img');
@@ -279,6 +390,23 @@
     function loadDesktopView() {
         view.classList.add('desktop');
 
+        let streamContainer = document.createElement('div');
+        streamContainer.setAttribute('class', 'stream-container');
+        streamContainer.setAttribute('id', 'steam-container');
+        stream = document.createElement('img');
+        stream.setAttribute('id', 'stream');
+        streamContainer.appendChild(stream);
+        view.appendChild(streamContainer);
+
+        let p = new PointerCaptcher(streamContainer, {
+            mode: 'set',
+            // sendTo: '/servo',
+            debug: true
+        });
+        p.init();
+
+        startStream();
+
         viewSelector.classList.add('hidden');
     }
 
@@ -290,31 +418,13 @@
         window.stop();
     }
 
-    function turnOnLaser(e) {
-        e.preventDefault();
-        e.target.classList.add('pressed');
-
-        fetch('/laser', {
-            method: 'POST',
-            body: 'on'
-        });
-    }
-
-    function turnOffLaser(e) {
-        e.preventDefault();
-        e.target.classList.remove('pressed');
-        fetch('/laser', {
-            method: 'POST',
-            body: 'off'
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', (e) => {
         view = document.getElementById('view');
         viewSelector = document.getElementById('view-selector');
 
         document.getElementById('mobile-selector').addEventListener('click', loadMobileView);
         document.getElementById('desktop-selector').addEventListener('click', loadDesktopView);
+
     });
 
 })();
