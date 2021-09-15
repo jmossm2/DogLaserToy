@@ -11,8 +11,8 @@
 #include "app.h"
 
 #include "controller.h"
-#define CAMERA_MODEL_AI_THINKER // Our camera model
-#include "camera_pins.h"
+// #define CAMERA_MODEL_AI_THINKER // Our camera model
+// #include "camera_pins.h"
 
 //#define Wifi WiFi
 

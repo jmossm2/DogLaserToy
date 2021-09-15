@@ -1,6 +1,9 @@
 #ifndef APP_H_
 #define APP_H_
 
+#define CAMERA_MODEL_AI_THINKER // Our camera model
+#include "camera_pins.h"
+
 // Some sent strings need this extra info, tedious to re-type
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
