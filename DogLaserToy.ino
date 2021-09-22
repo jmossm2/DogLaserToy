@@ -36,6 +36,9 @@ void setup() {
   // Init camera
   app_init_camera();
 
+  // Init servos and controller data
+  controller_init();
+
   // Start the web server
   startServer();
   startStream();
@@ -44,18 +47,6 @@ void setup() {
   Serial.print("Server ready! Use 'http://");
   Serial.print(WiFi.localIP());
   Serial.println("' to connect");
-
-  // Rotate servos
-  while (1) {
-    servo_yaw.write(-90);
-    delay(1000);
-    servo_pit.write(-90);
-    delay(1000);
-    servo_yaw.write(90);
-    delay(1000);
-    servo_pit.write(90);
-    delay(1000);
-  }
 }
 
 void loop() {

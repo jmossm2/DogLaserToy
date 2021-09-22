@@ -3,6 +3,7 @@
 
 #define CAMERA_MODEL_AI_THINKER // Our camera model
 #include "camera_pins.h"
+#include "controller.h"
 
 // Some sent strings need this extra info, tedious to re-type
 #define PART_BOUNDARY "123456789000000000000987654321"
@@ -73,18 +74,14 @@ static esp_err_t laser_handler(httpd_req_t *req) {
     }
   }
   // Choose correct mode
-  static bool laserState = false;
   if (!strcmp(query_mode, "on")) {
-    laserState = true;
-    // Laser pin high
+    controller_setLaserState(LASER_ON);
   }
   else if (!strcmp(query_mode, "off")) {
-    laserState = false;
-    // Laser pin low
+    controller_setLaserState(LASER_OFF);
   }
   else if (!strcmp(query_mode, "toggle")) {
-    laserState = !laserState;
-    // Laser pin laserState
+    controller_setLaserState(LASER_TOGGLE);
   }
 
   // Check that the connection is still good
