@@ -138,12 +138,15 @@ static esp_err_t servo_handler(httpd_req_t *req) {
 
     
   }
-  // Choose correct mode
+  // Choose correct mode and set xy data
   if (!strcmp(query_mode, "velocity")) {
+    controller_controlServo(SERVO_VELOCITY, atoi(query_x), atoi(query_y));
   }
   else if (!strcmp(query_mode, "set")) {
+    controller_controlServo(SERVO_SET, atoi(query_x), atoi(query_y));
   }
   else if (!strcmp(query_mode, "offset")) {
+    controller_controlServo(SERVO_OFFSET, atoi(query_x), atoi(query_y));
   }
   Serial.printf("%s %s %s\r\n", query_mode, query_x, query_y);
 
