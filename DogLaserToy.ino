@@ -47,6 +47,12 @@ void setup() {
   Serial.print("Server ready! Use 'http://");
   Serial.print(WiFi.localIP());
   Serial.println("' to connect");
+
+  // Continually update servo every 100ms
+  while (1) {
+    controller_updateServoPos();
+    delay(100);
+  }
 }
 
 void loop() {
