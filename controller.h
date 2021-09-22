@@ -2,7 +2,6 @@
 #define CONTROLLER_H_
 
 #include <stdint.h>
-#include <Arduino.h>
 
 #define PIN_LASER 14
 #define PIN_PIT 12
@@ -84,16 +83,16 @@ void controller_init() {
   servo_pit.attach(12, Servo::CHANNEL_NOT_ATTACHED, -100, 100, 600, 2400);
   servo_yaw.attach( 2, Servo::CHANNEL_NOT_ATTACHED, -100, 100, 600, 2400);
   // Initialize laser
-  pinMode(PIN_LASER, OUTPUT);
+  setPinMode(PIN_LASER, OUTPUT);
   digitalWrite(PIN_LASER, LOW);
   // Initialize servo data
   servo_data = {
-    .posx = 0,
-    .posy = 0,
-    .velx = 0,
-    .vely = 0,
-    .mode = SERVO_SET,
-    .last_update = 0,
+    .posx = 0;
+    .posy = 0;
+    .velx = 0;
+    .vely = 0;
+    .mode = SERVO_SET;
+    .last_update = 0;
   };
 }
 
@@ -105,8 +104,8 @@ void controller_updateServoPos(void) {
 
   uint32_t delta = curr_update - servo_data.last_update;
   if (servo_data.mode == SERVO_VELOCITY) {
-    servo_data.posx = max(min(servo_data.posx + servo_data.velx * delta * MAX_ANG_VELOCITY, 100.0), -100.0);
-    servo_data.posy = max(min(servo_data.posy + servo_data.vely * delta * MAX_ANG_VELOCITY, 100.0), -100.0);
+    servo_data.posx = max(min(servo_data.posx + servo_data.velx * delta * MAX_ANG_VELOCITY, 100), -100);
+    servo_data.posy = max(min(servo_data.posy + servo_data.vely * delta * MAX_ANG_VELOCITY, 100), -100);
   }
 
   servo_data.last_update = curr_update;
