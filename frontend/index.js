@@ -400,7 +400,7 @@
 
         let p = new PointerCaptcher(streamContainer, {
             mode: 'set',
-            // sendTo: '/servo',
+            sendTo: '/servo',
             debug: true
         });
         p.init();
