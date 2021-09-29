@@ -44,7 +44,7 @@ static esp_err_t css_handler(httpd_req_t *req) {
 
 // laser handler for server
 static esp_err_t laser_handler(httpd_req_t *req) {
-  Serial.printf("Laser handler called\n");
+  // Serial.printf("Laser handler called\n");
   char content[10];
   size_t recv_size = min(req->content_len, sizeof(content));
 
@@ -105,7 +105,7 @@ static esp_err_t laser_handler(httpd_req_t *req) {
 
 // servo handler for server
 static esp_err_t servo_handler(httpd_req_t *req) {
-  Serial.printf("Servo handler called\r\n");
+  // Serial.printf("Servo handler called\r\n");
   char content[10];
   size_t recv_size = min(req->content_len, sizeof(content));
 
@@ -148,7 +148,7 @@ static esp_err_t servo_handler(httpd_req_t *req) {
   else if (!strcmp(query_mode, "offset")) {
     controller_controlServo(SERVO_OFFSET, atoi(query_x), atoi(query_y));
   }
-  Serial.printf("%s %s %s\r\n", query_mode, query_x, query_y);
+  // Serial.printf("%s %s %s\r\n", query_mode, query_x, query_y);
 
   // Check that the connection is still good
   int ret = httpd_req_recv(req, content, recv_size);
