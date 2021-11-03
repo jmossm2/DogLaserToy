@@ -1,12 +1,12 @@
 #ifndef CONTROLLER_H_
 #define CONTROLLER_H_
 
+#include <Servo.h>
 #include <stdint.h>
-#include <Arduino.h>
 
-#define PIN_LASER 14
-#define PIN_PIT 12
-#define PIN_YAW 2
+#define PIN_LASER 4
+#define PIN_PIT 15
+#define PIN_YAW 14
 #define MAX_UPS 100
 #define MAX_ANG_VELOCITY (MAX_UPS / 1000.0) // Units per millisecond
 #define SERVO_UPDATE_INTERVAL 50
@@ -42,12 +42,15 @@ void controller_setLaserState(laser_mode_e mode) {
   switch (mode) {
     case LASER_OFF:
       is_on = false;
+      Serial.printf("Setting to false\n");
       break;
     case LASER_ON:
       is_on = true;
+      Serial.printf("Setting to on\n");
       break;
     case LASER_TOGGLE:
       is_on = !is_on;
+      Serial.printf("Toggling\n");
       break;
     default:
       break;
@@ -67,6 +70,8 @@ void controller_controlServo(servo_mode_e mode, int8_t x, int8_t y) {
       servo_data.vely = 0;
       servo_data.posx = x;
       servo_data.posy = y;
+      servo_yaw.write(servo_data.posx);
+      servo_pit.write(servo_data.posy);
       break;
     case SERVO_OFFSET:
       servo_data.velx  = 0;
@@ -81,8 +86,8 @@ void controller_controlServo(servo_mode_e mode, int8_t x, int8_t y) {
 
 void controller_init() {
   // Attach servos
-  servo_pit.attach(12, Servo::CHANNEL_NOT_ATTACHED, -100, 100, 600, 2400);
-  servo_yaw.attach( 2, Servo::CHANNEL_NOT_ATTACHED, -100, 100, 600, 2400);
+  servo_pit.attach(PIN_PIT, 3, -100, 100, 600, 2400);
+  servo_yaw.attach(PIN_YAW, 3, -100, 100, 600, 2400);
   // Initialize laser
   pinMode(PIN_LASER, OUTPUT);
   digitalWrite(PIN_LASER, LOW);
@@ -93,7 +98,7 @@ void controller_init() {
     .velx = 0,
     .vely = 0,
     .mode = SERVO_SET,
-    .last_update = 0,
+    .last_update = 0
   };
 }
 

@@ -3,6 +3,9 @@
 
 #define CAMERA_MODEL_AI_THINKER // Our camera model
 #include "camera_pins.h"
+#include "frontend.h"
+#include "esp_http_server.h"
+#include "esp_camera.h"
 #include "controller.h"
 
 // Some sent strings need this extra info, tedious to re-type
@@ -74,30 +77,37 @@ static esp_err_t laser_handler(httpd_req_t *req) {
     }
   }
   // Choose correct mode
+  // static bool laserState = false;
   if (!strcmp(query_mode, "on")) {
+    // laserState = true;
+    // Laser pin high
     controller_setLaserState(LASER_ON);
   }
   else if (!strcmp(query_mode, "off")) {
+    // laserState = false;
+    // Laser pin low
     controller_setLaserState(LASER_OFF);
   }
   else if (!strcmp(query_mode, "toggle")) {
+    // laserState = !laserState;
+    // Laser pin laserState
     controller_setLaserState(LASER_TOGGLE);
   }
 
   // Check that the connection is still good
-  int ret = httpd_req_recv(req, content, recv_size);
-  if (ret <= 0) {  /* 0 return value indicates connection closed */
-    /* Check if timeout occurred */
-    if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
-      /* In case of timeout one can choose to retry calling
-       * httpd_req_recv(), but to keep it simple, here we
-       * respond with an HTTP 408 (Request Timeout) error */
-       httpd_resp_send_408(req);
-    }
-    /* In case of error, returning ESP_FAIL will
-     * ensure that the underlying socket is closed */
-    return ESP_FAIL;
-  }
+  // int ret = httpd_req_recv(req, content, recv_size);
+  // if (ret <= 0) {  /* 0 return value indicates connection closed */
+  //   /* Check if timeout occurred */
+  //   if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+  //     /* In case of timeout one can choose to retry calling
+  //      * httpd_req_recv(), but to keep it simple, here we
+  //      * respond with an HTTP 408 (Request Timeout) error */
+  //      httpd_resp_send_408(req);
+  //   }
+  //   /* In case of error, returning ESP_FAIL will
+  //    * ensure that the underlying socket is closed */
+  //   return ESP_FAIL;
+  // }
 
   httpd_resp_send(req, "Laser has changed", HTTPD_RESP_USE_STRLEN);
   return ESP_OK;
@@ -138,29 +148,27 @@ static esp_err_t servo_handler(httpd_req_t *req) {
 
     
   }
-  // Choose correct mode and set xy data
+  // Choose correct mode
   if (!strcmp(query_mode, "velocity")) {
-    controller_controlServo(SERVO_VELOCITY, atoi(query_x), atoi(query_y));
   }
   else if (!strcmp(query_mode, "set")) {
     controller_controlServo(SERVO_SET, atoi(query_x), atoi(query_y));
   }
   else if (!strcmp(query_mode, "offset")) {
-    controller_controlServo(SERVO_OFFSET, atoi(query_x), atoi(query_y));
   }
   Serial.printf("%s %s %s\r\n", query_mode, query_x, query_y);
 
   // Check that the connection is still good
-  int ret = httpd_req_recv(req, content, recv_size);
-  if (ret <= 0) { /* 0 return value indicates connection closed */
-    /* Check if timeout occurred */
-    if (ret = HTTPD_SOCK_ERR_TIMEOUT) {
-      httpd_resp_send_408(req);
-    }
-    return ESP_FAIL;
-  }
+  // int ret = httpd_req_recv(req, content, recv_size);
+  // if (ret <= 0) { /* 0 return value indicates connection closed */
+  //   /* Check if timeout occurred */
+  //   if (ret = HTTPD_SOCK_ERR_TIMEOUT) {
+  //     httpd_resp_send_408(req);
+  //   }
+  //   Serial.printf("Connection timed out\n");
+  //   return ESP_FAIL;
+  // }
 
-  httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
   return httpd_resp_send(req, "Moved servos", HTTPD_RESP_USE_STRLEN);
 }
 

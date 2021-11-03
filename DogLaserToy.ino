@@ -4,15 +4,8 @@
 // #include "esp_camera.h"
 // #include "camera_pins.h"
 #include <WiFi.h>
-#include "esp_http_server.h"
-#include "esp_camera.h"
-#include "frontend.h"
-#include <Servo.h>
 #include "app.h"
-
 #include "controller.h"
-#define CAMERA_MODEL_AI_THINKER // Our camera model
-#include "camera_pins.h"
 
 //#define Wifi WiFi
 
@@ -20,12 +13,15 @@
 const char* ssid = "LAPTOP-1QLPB7T6 1976";
 const char* password = "1003P5<o";
 
+const char* ssidc = "esp";
+
 void setup() {
   Serial.begin(115200);
+  WiFi.softAP(ssidc, password);
 
   // Connect to wifi
-  WiFi.begin(ssid, password);
-
+  // WiFi.begin(ssid, password);
+  
   // Wait until connected to continue
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -49,10 +45,10 @@ void setup() {
   Serial.println("' to connect");
 
   // Continually update servo every 100ms
-  while (1) {
-    controller_updateServoPos();
-    delay(100);
-  }
+  // while (1) {
+  //   // controller_updateServoPos();
+  //   delay(100);
+  // }
 }
 
 void loop() {
