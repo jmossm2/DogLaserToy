@@ -76,8 +76,10 @@ void controller_controlServo(servo_mode_e mode, int8_t x, int8_t y) {
     case SERVO_OFFSET:
       servo_data.velx  = 0;
       servo_data.vely  = 0;
-      servo_data.posx += x;
-      servo_data.posy += y;
+      servo_data.posx = max(min(servo_data.posx + x, 100.0), -100.0);
+      servo_data.posy = max(min(servo_data.posy + y, 100.0), -100.0);;
+      servo_yaw.write(servo_data.posx);
+      servo_pit.write(servo_data.posy);
       break;
     default:
       break;
@@ -87,7 +89,7 @@ void controller_controlServo(servo_mode_e mode, int8_t x, int8_t y) {
 void controller_init() {
   // Attach servos
   servo_pit.attach(PIN_PIT, 3, -100, 100, 600, 2400);
-  servo_yaw.attach(PIN_YAW, 3, -100, 100, 600, 2400);
+  servo_yaw.attach(PIN_YAW, 4, -100, 100, 600, 2400);
   // Initialize laser
   pinMode(PIN_LASER, OUTPUT);
   digitalWrite(PIN_LASER, LOW);
